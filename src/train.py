@@ -62,7 +62,7 @@ model.train(
     epochs=800,
     batch=256,  # you have 180 GB VRAM
     imgsz=1920,
-    workers=16,
+    workers=2,
     mosaic=1.0,
     close_mosaic=20,
     hsv_h=0.015,

@@ -4,8 +4,9 @@ import torch, cv2
 from ultralytics import YOLO
 
 # (optional) silence the write warning when running as root
-os.environ['YOLO_CONFIG_DIR'] = '/tmp/ultra_cfg'
-os.makedirs('/tmp/ultra_cfg', exist_ok=True)
+os.environ["YOLO_CONFIG_DIR"] = "/tmp/ultra_cfg"
+os.makedirs("/tmp/ultra_cfg", exist_ok=True)
+
 
 # ---- custom batch augmentation via callback ----
 # Applies: grayscale (p=0.2), Gaussian blur (p=0.3), CLAHE (p=0.3), sharpen (p=0.3)
@@ -46,26 +47,33 @@ def on_preprocess_batch(trainer):
 
     batch["img"] = imgs
 
-callbacks = {"on_preprocess_batch": on_preprocess_batch}
+
 # -----------------------------------------------
 
 # load P2-head model yaml
 model = YOLO("src/config/yolov11-p2.yaml")
 
+# Add the callback to the model
+model.add_callback("on_preprocess_batch", on_preprocess_batch)
+
 # train
 model.train(
     data="src/dataset/data.yaml",
     epochs=800,
-    batch=256,        # you have 180 GB VRAM
+    batch=256,  # you have 180 GB VRAM
     imgsz=1920,
     workers=16,
     mosaic=1.0,
     close_mosaic=20,
-    hsv_h=0.015, hsv_s=0.6, hsv_v=0.5,
-    translate=0.1, scale=0.5, fliplr=0.5, mixup=0.0,
+    hsv_h=0.015,
+    hsv_s=0.6,
+    hsv_v=0.5,
+    translate=0.1,
+    scale=0.5,
+    fliplr=0.5,
+    mixup=0.0,
     cos_lr=True,
     device=0,
-    callbacks=callbacks,   # << inject our augmentations here
 )
 
 # validate

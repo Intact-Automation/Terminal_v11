@@ -1,0 +1,61 @@
+# Default YOLO training configuration
+
+# Paths
+data: src/dataset/data.yaml  # dataset YAML
+model: src/config/yolov11-p2.yaml  # model YAML
+
+# Training parameters
+epochs: 100
+batch: 16
+imgsz: 640
+save: True
+cache: False
+device: 0
+workers: 8
+project: runs/train
+name: exp
+exist_ok: False
+pretrained: True
+optimizer: SGD
+verbose: True
+seed: 0
+deterministic: True
+single_cls: False
+
+# Augmentation
+hsv_h: 0.015
+hsv_s: 0.7
+hsv_v: 0.4
+degrees: 0.0
+translate: 0.1
+scale: 0.5
+shear: 0.0
+perspective: 0.0
+flipud: 0.0
+fliplr: 0.5
+mosaic: 1.0
+mixup: 0.0
+copy_paste: 0.0
+erasing: 0.0
+
+# Training schedule
+close_mosaic: 10
+resume: False
+lr0: 0.01
+lrf: 0.01
+momentum: 0.937
+weight_decay: 0.0005
+warmup_epochs: 3.0
+warmup_momentum: 0.8
+warmup_bias_lr: 0.1
+patience: 50
+cos_lr: False
+
+# Evaluation
+val: True
+save_json: False
+save_hybrid: False
+plots: True
+conf: 0.25
+iou: 0.7
+max_det: 300

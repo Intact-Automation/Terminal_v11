@@ -60,8 +60,8 @@ model.add_callback("on_preprocess_batch", on_preprocess_batch)
 model.train(
     data="src/dataset/data.yaml",
     epochs=800,
-    batch=256,  # you have 180 GB VRAM
-    imgsz=1920,
+    batch=128,  # you have 180 GB VRAM
+    imgsz=1536,
     workers=2,
     mosaic=1.0,
     close_mosaic=20,

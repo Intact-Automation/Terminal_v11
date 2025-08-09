@@ -1,55 +1,76 @@
-import albumentations as A
+import os, random
+import numpy as np
+import torch, cv2
 from ultralytics import YOLO
-from ultralytics.data.dataset import YOLODataset
-from ultralytics.cfg import get_cfg
 
+# (optional) silence the write warning when running as root
+os.environ['YOLO_CONFIG_DIR'] = '/tmp/ultra_cfg'
+os.makedirs('/tmp/ultra_cfg', exist_ok=True)
 
-# ===== 1️⃣ Custom Dataset with Albumentations =====
-class ScrewDataset(YOLODataset):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+# ---- custom batch augmentation via callback ----
+# Applies: grayscale (p=0.2), Gaussian blur (p=0.3), CLAHE (p=0.3), sharpen (p=0.3)
+def on_preprocess_batch(trainer):
+    batch = trainer.batch
+    imgs = batch["img"]  # (B, C, H, W) float32 in [0,1]
+    B, C, H, W = imgs.shape
+    for i in range(B):
+        # to uint8 BGR for OpenCV
+        img = (imgs[i].permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
 
-        # Albumentations pipeline
-        self.albu = A.Compose([
-            A.ToGray(p=0.2),  # 20% grayscale images
-            A.GaussianBlur(blur_limit=3, p=0.3),  # mild blur
-            A.CLAHE(clip_limit=4.0, tile_grid_size=(8, 8), p=0.3),  # contrast boost
-            A.Sharpen(alpha=(0.2, 0.5), lightness=(0.5, 1.0), p=0.3)  # edge sharpening
-        ])
+        # grayscale 20% (keep 3 channels)
+        if random.random() < 0.2:
+            g = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            img = cv2.cvtColor(g, cv2.COLOR_GRAY2BGR)
 
-    def __getitem__(self, index):
-        im, labels = super().__getitem__(index)
-        h, w = im.shape[1], im.shape[2]
+        # gaussian blur 30%
+        if random.random() < 0.3:
+            img = cv2.GaussianBlur(img, ksize=(0, 0), sigmaX=1.0)
 
-        # Convert to numpy for Albumentations (H, W, C)
-        im = im.permute(1, 2, 0).numpy()
-        im = self.albu(image=im)['image']
+        # CLAHE 30% (on L channel)
+        if random.random() < 0.3:
+            lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+            L, A, Bc = cv2.split(lab)
+            clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
+            L2 = clahe.apply(L)
+            lab2 = cv2.merge([L2, A, Bc])
+            img = cv2.cvtColor(lab2, cv2.COLOR_LAB2BGR)
 
-        # Convert back to tensor (C, H, W)
-        im = self.transforms(im)  # use YOLO's transforms to normalize
-        return im, labels
+        # sharpen 30% (unsharp mask)
+        if random.random() < 0.3:
+            blur = cv2.GaussianBlur(img, (0, 0), 1.0)
+            img = cv2.addWeighted(img, 1.5, blur, -0.5, 0)
 
+        # back to tensor in [0,1]
+        img_t = torch.from_numpy(img).permute(2, 0, 1).to(imgs.device).float() / 255.0
+        imgs[i] = img_t
 
-# ===== 2️⃣ Load model =====
-model = YOLO('src/config/yolov11-p2.yaml')  # make sure this yaml exists
+    batch["img"] = imgs
 
-# ===== 3️⃣ Training config =====
-cfg = get_cfg(cfg='src/config/default.yaml')  # load default config
-cfg.data = 'src/dataset/data.yaml'
-cfg.epochs = 800
-cfg.batch = 256
-cfg.imgsz = 1920
-cfg.workers = 16
-cfg.close_mosaic = 20
-cfg.cos_lr = True
-cfg.device = 0
+callbacks = {"on_preprocess_batch": on_preprocess_batch}
+# -----------------------------------------------
 
-# ===== 4️⃣ Train with custom dataset =====
-model.train(cfg=cfg, dataset=ScrewDataset)
+# load P2-head model yaml
+model = YOLO("src/config/yolov11-p2.yaml")
 
-# ===== 5️⃣ Validate =====
+# train
+model.train(
+    data="src/dataset/data.yaml",
+    epochs=800,
+    batch=256,        # you have 180 GB VRAM
+    imgsz=1920,
+    workers=16,
+    mosaic=1.0,
+    close_mosaic=20,
+    hsv_h=0.015, hsv_s=0.6, hsv_v=0.5,
+    translate=0.1, scale=0.5, fliplr=0.5, mixup=0.0,
+    cos_lr=True,
+    device=0,
+    callbacks=callbacks,   # << inject our augmentations here
+)
+
+# validate
 metrics = model.val()
 
-# ===== 6️⃣ Inference example =====
-results = model("path/to/image.jpg")
-results[0].show()
+# quick inference test
+result = model("path/to/image.jpg")
+result[0].show()

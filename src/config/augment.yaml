@@ -1,6 +1,13 @@
+# =====================
+# Hyp params for screw detection (YOLOv11)
+# =====================
+
+# Color augmentations
 hsv_h: 0.015
 hsv_s: 0.6
 hsv_v: 0.5
+
+# Geometric augmentations
 degrees: 0.0
 translate: 0.1
 scale: 0.5
@@ -8,7 +15,15 @@ shear: 0.0
 perspective: 0.0
 flipud: 0.0
 fliplr: 0.5
+
+# Mosaic & mixup
 mosaic: 1.0
 mixup: 0.0
-gray: 0.2
-blur: 1.5
+
+# Albumentations pipeline for extra augmentations
+albumentations: [
+  {'type': 'ToGray', 'p': 0.2},                                # 20% grayscale images
+  {'type': 'GaussianBlur', 'p': 0.3, 'blur_limit': 3},          # mild blur
+  {'type': 'CLAHE', 'p': 0.3, 'clip_limit': 4.0, 'tile_grid_size': [8, 8]}, # contrast boost
+  {'type': 'Sharpen', 'p': 0.3, 'alpha': [0.2, 0.5], 'lightness': [0.5, 1.0]} # edge sharpening
+]

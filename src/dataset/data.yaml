@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 3
+names: ['Inverted', 'Pass', 'Reject']
+
+roboflow:
+  workspace: intact
+  project: my-first-project-uspo1
+  version: 2
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/intact/my-first-project-uspo1/dataset/2
